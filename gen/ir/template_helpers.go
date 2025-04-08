@@ -232,6 +232,71 @@ func (t *Type) TypeDiscriminator() (r []TypeDiscriminatorCase) {
 	return r
 }
 
+// UniqueObjPropertyNamesDescriminatorCases is a helper struct for describing unique object property name discriminator case.
+type UniqueObjPropertyNamesDescriminatorCases struct {
+	Default *UniqueObjPropertyNamesDescriminatorCase
+	Cases   []UniqueObjPropertyNamesDescriminatorCase
+}
+
+type UniqueObjPropertyNamesDescriminatorCase struct {
+	Type         *Type
+	NumPropNames int
+	CaseStmtBody string
+}
+
+func (t *Type) UniqueObjPropertyNamesDescriminator() (r UniqueObjPropertyNamesDescriminatorCases) {
+	if !t.Is(KindSum) || !t.SumSpec.UniqueObjPropertyNamesDescriminator {
+		panic(unreachable(t))
+	}
+
+	propNamesMap := make(map[string]*int)
+
+	for _, s := range t.SumOf {
+		typ := s.JSON().Type()
+		if typ != "Object" {
+			panic(unreachable(s))
+		}
+
+		for _, p := range s.Schema.Properties {
+			if n, ok := propNamesMap[p.Name]; ok {
+				*n = *n + 1
+			} else {
+				i := 0
+				propNamesMap[p.Name] = &i
+			}
+		}
+	}
+
+	for _, s := range t.SumOf {
+		quotedPropNames := make([]string, 0, len(s.Schema.Properties))
+		for _, name := range s.Schema.Required {
+			if n, ok := propNamesMap[name]; ok && *n == 0 {
+				quotedPropNames = append(quotedPropNames, fmt.Sprintf("%q", name))
+			}
+		}
+
+		if len(quotedPropNames) == 0 {
+			if r.Default != nil {
+				panic(unreachable(t))
+			}
+			r.Default = &UniqueObjPropertyNamesDescriminatorCase{
+				Type: s,
+			}
+		} else {
+			r.Cases = append(r.Cases, UniqueObjPropertyNamesDescriminatorCase{
+				Type:         s,
+				NumPropNames: len(quotedPropNames),
+				CaseStmtBody: strings.Join(quotedPropNames, ", "),
+			})
+		}
+	}
+
+	slices.SortStableFunc(r.Cases, func(a, b UniqueObjPropertyNamesDescriminatorCase) int {
+		return b.NumPropNames - a.NumPropNames
+	})
+	return r
+}
+
 // DoPassByPointer returns true if type should be passed by pointer.
 func (t *Type) DoPassByPointer() bool {
 	switch t.Kind {

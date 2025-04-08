@@ -65,7 +65,58 @@ func (s *{{ $.Name }}) Decode(d *jx.Decoder) error {
 		return errors.New({{ printf "invalid: unable to decode %s to nil" $.Name | quote }})
 	}
 	// Sum type {{ $d }}.
-	{{- if or ($d.Primitive) ($d.TypeDiscriminator) }}
+	{{- if ($d.UniqueObjPropertyNamesDescriminator) }}
+	switch t := d.Next(); t {
+	case jx.Object:
+		{{- $cse := $.UniqueObjPropertyNamesDescriminator }}
+		type Decodable interface {
+			Decode(*jx.Decoder) error
+		}
+		var typ {{ $.Name }}Type
+		var obj Decodable
+		var found bool
+		var ErrFound error = errors.New("obj found")
+		{{- if ne $cse.Default nil }}
+			{{- $s := $cse.Default.Type }}
+			typ = {{ $s.Name }}{{ $.Name }} // default case
+            obj = &{{- printf "s.%s" $s.Name }} // default case
+            found = true // default case
+		{{- end }}
+		if err := d.Capture(func(d *jx.Decoder) error {
+			if err := d.ObjBytes(func(d *jx.Decoder, key []byte) error {
+				if err := d.Skip(); err != nil {
+					return err
+				}
+				switch string(key) {
+				{{- range $cse := $cse.Cases }}
+					{{- $s := $cse.Type }}
+                	case {{ $cse.CaseStmtBody }}:
+						typ = {{ $s.Name }}{{ $.Name }}
+                        obj = &{{- printf "s.%s" $s.Name }}
+                        found = true
+                        return ErrFound
+	            {{- end }}
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil && errors.Unwrap(err) != ErrFound {
+			return err
+		}
+		if found {
+			if err := obj.Decode(d); err != nil {
+				return err
+			}
+			s.Type = typ
+		} else {
+			return errors.Errorf("unexpected json")
+		}
+	default:
+		return errors.Errorf("unexpected json type %q", t)
+	}
+	{{- else if or ($d.Primitive) ($d.TypeDiscriminator) }}
 	switch t := d.Next(); t {
 	{{- range $cse := $.TypeDiscriminator }}
 	case {{ $cse.JXTypes }}:
