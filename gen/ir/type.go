@@ -47,6 +47,9 @@ type SumSpec struct {
 
 	// TypeDiscriminator denotes to distinguish variants by type.
 	TypeDiscriminator bool
+
+	// UniqueObjPropertyNamesDescriminator denotes to distinguish variants by unique object property names
+	UniqueObjPropertyNamesDescriminator bool
 }
 
 type ResolvedSumSpecMap struct {
