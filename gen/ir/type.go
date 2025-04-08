@@ -46,6 +46,9 @@ type SumSpec struct {
 
 	// TypeDiscriminator denotes to distinguish variants by type.
 	TypeDiscriminator bool
+
+	// UniqueObjPropertyNamesDescriminator denotes to distinguish variants by unique object property names
+	UniqueObjPropertyNamesDescriminator bool
 }
 
 // PickMappingEntryFor returns mapping entry for given type if exists.

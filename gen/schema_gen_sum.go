@@ -82,6 +82,48 @@ func canUseTypeDiscriminator(sum []*ir.Type, isOneOf bool) bool {
 	return true
 }
 
+func canUseUniqueObjPropertyNamesDescriminator(sum []*ir.Type) bool {
+	propNamesMap := make(map[string]*int)
+
+	for _, s := range sum {
+		if s.Schema.Type != jsonschema.Object {
+			// All variants must be an object to distinguish by unique property name profile
+			return false
+		}
+
+		for _, p := range s.Schema.Properties {
+			if n, ok := propNamesMap[p.Name]; ok {
+				*n = *n + 1
+			} else {
+				i := 0
+				propNamesMap[p.Name] = &i
+			}
+		}
+	}
+
+	emptyCount := 0
+	for _, s := range sum {
+		hasUniquePropName := false
+		for _, name := range s.Schema.Required {
+			if n, ok := propNamesMap[name]; ok && *n == 0 {
+				hasUniquePropName = true
+				break
+			}
+		}
+
+		if !hasUniquePropName {
+			if emptyCount == 0 {
+				// We can have one non-unique variant that gets defaulted to if the others don't match
+				emptyCount += 1
+			} else {
+				// Property name profile is not unique, so we cannot distinguish variants that way
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func ensureNoInfiniteRecursion(parent *jsonschema.Schema) error {
 	var do func(map[jsonschema.Ref]struct{}, []*jsonschema.Schema) error
 	do = func(ctx map[jsonschema.Ref]struct{}, schemas []*jsonschema.Schema) error {
@@ -231,6 +273,11 @@ func (g *schemaGen) anyOf(name string, schema *jsonschema.Schema, side bool) (*i
 				}
 			}
 		}
+		return sum, nil
+	}
+
+	if canUseUniqueObjPropertyNamesDescriminator(sum.SumOf) {
+		sum.SumSpec.UniqueObjPropertyNamesDescriminator = true
 		return sum, nil
 	}
 	return nil, &ErrNotImplemented{"complex anyOf"}
