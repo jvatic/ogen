@@ -71,6 +71,9 @@ func (s *{{ $.Name }}) Decode(d *jx.Decoder) error {
 		{{- end }}
 		if err := d.Capture(func(d *jx.Decoder) error {
 			if err := d.ObjBytes(func(d *jx.Decoder, key []byte) error {
+				if err := d.Skip(); err != nil {
+					return err
+				}
 				switch string(key) {
 				{{- range $cse := $cse.Cases }}
 					{{- $s := $cse.Type }}
@@ -86,7 +89,7 @@ func (s *{{ $.Name }}) Decode(d *jx.Decoder) error {
 				return err
 			}
 			return nil
-		}); err != nil && err != ErrFound {
+		}); err != nil && errors.Unwrap(err) != ErrFound {
 			return err
 		}
 		if found {
