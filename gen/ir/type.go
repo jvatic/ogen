@@ -27,8 +27,14 @@ const (
 )
 
 type SumSpecMap struct {
-	Key  string
-	Type *Type
+	Key           string
+	Type          *Type
+	FormattedName string // Formatted name for this discriminator value
+}
+
+// ValueGo returns the Go string representation of the discriminator key.
+func (m SumSpecMap) ValueGo() string {
+	return PrintGoValue(m.Key)
 }
 
 // SumSpec for KindSum.
@@ -51,19 +57,37 @@ type SumSpec struct {
 	UniqueObjPropertyNamesDescriminator bool
 }
 
-// PickMappingEntryFor returns mapping entry for given type if exists.
-func (s SumSpec) PickMappingEntryFor(t *Type) *SumSpecMap {
+// GetAllDiscriminatorValues returns all discriminator values that map to the given type.
+func (s SumSpec) GetAllDiscriminatorValues(t *Type) []string {
 	if s.Discriminator == "" {
 		return nil
 	}
 
+	var values []string
 	for _, m := range s.Mapping {
 		if m.Type == t {
-			return &m
+			values = append(values, m.Key)
 		}
 	}
-	return nil
+	return values
 }
+
+// GetMapValue returns a SumSpecMap for the given type and key.
+// It panics if the mapping isn't found, which indicates a programming error
+// as all mappings should be set during schema generation.
+func (s SumSpec) GetMapValue(t *Type, key string) SumSpecMap {
+	// Look for existing mapping
+	for _, m := range s.Mapping {
+		if m.Type == t && m.Key == key {
+			return m
+		}
+	}
+	
+	// Panic if mapping not found - this is a programming error
+	panic(fmt.Sprintf("GetMapValue: mapping not found for type %q and key %q", t.Name, key))
+}
+
+
 
 type Type struct {
 	Doc                 string              // ogen documentation

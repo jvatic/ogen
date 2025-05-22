@@ -1,0 +1,348 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Discriminator Mapping Test",
+    "version": "v1.0.0"
+  },
+  "paths": {
+    "/events": {
+      "post": {
+        "operationId": "createEvent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Event"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "operationId": "getNotifications",
+        "responses": {
+          "200": {
+            "description": "List of notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Notification"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/alerts": {
+      "post": {
+        "operationId": "createAlert",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Alert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Alert created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Alert"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Event": {
+        "type": "object",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "user.created": "#/components/schemas/UserEvent",
+            "user.registered": "#/components/schemas/UserEvent",
+            "user.signup": "#/components/schemas/UserEvent",
+            "admin.login": "#/components/schemas/AdminEvent",
+            "admin.action": "#/components/schemas/AdminEvent",
+            "system.startup": "#/components/schemas/SystemEvent",
+            "system.shutdown": "#/components/schemas/SystemEvent",
+            "system.maintenance": "#/components/schemas/SystemEvent"
+          }
+        },
+        "required": ["type", "timestamp"],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserEvent"
+          },
+          {
+            "$ref": "#/components/schemas/AdminEvent"
+          },
+          {
+            "$ref": "#/components/schemas/SystemEvent"
+          }
+        ]
+      },
+      "UserEvent": {
+        "type": "object",
+        "required": ["userId"],
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AdminEvent": {
+        "type": "object",
+        "required": ["adminId"],
+        "properties": {
+          "adminId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "targetResource": {
+            "type": "string"
+          }
+        }
+      },
+      "SystemEvent": {
+        "type": "object",
+        "required": ["service"],
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "discriminator": {
+          "propertyName": "channel",
+          "mapping": {
+            "email": "#/components/schemas/EmailNotification",
+            "mail": "#/components/schemas/EmailNotification",
+            "sms": "#/components/schemas/SmsNotification",
+            "text": "#/components/schemas/SmsNotification",
+            "push": "#/components/schemas/PushNotification",
+            "mobile": "#/components/schemas/PushNotification",
+            "app": "#/components/schemas/PushNotification"
+          }
+        },
+        "required": ["channel", "message"],
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/EmailNotification"
+          },
+          {
+            "$ref": "#/components/schemas/SmsNotification"
+          },
+          {
+            "$ref": "#/components/schemas/PushNotification"
+          }
+        ]
+      },
+      "EmailNotification": {
+        "type": "object",
+        "required": ["recipient"],
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "format": "email"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "htmlBody": {
+            "type": "string"
+          }
+        }
+      },
+      "SmsNotification": {
+        "type": "object",
+        "required": ["phoneNumber"],
+        "properties": {
+          "phoneNumber": {
+            "type": "string"
+          },
+          "shortCode": {
+            "type": "string"
+          }
+        }
+      },
+      "PushNotification": {
+        "type": "object",
+        "required": ["deviceToken"],
+        "properties": {
+          "deviceToken": {
+            "type": "string"
+          },
+          "badge": {
+            "type": "integer"
+          },
+          "sound": {
+            "type": "string"
+          }
+        }
+      },
+      "Alert": {
+        "type": "object",
+        "discriminator": {
+          "propertyName": "severity",
+          "mapping": {
+            "critical": "#/components/schemas/SecurityAlert",
+            "urgent": "#/components/schemas/SecurityAlert",
+            "high": "#/components/schemas/SecurityAlert",
+            "medium": "#/components/schemas/PerformanceAlert",
+            "low": "#/components/schemas/PerformanceAlert",
+            "info": "#/components/schemas/InfoAlert",
+            "debug": "#/components/schemas/InfoAlert"
+          }
+        },
+        "required": ["severity", "message", "timestamp"],
+        "properties": {
+          "severity": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SecurityAlert"
+          },
+          {
+            "$ref": "#/components/schemas/PerformanceAlert"
+          },
+          {
+            "$ref": "#/components/schemas/InfoAlert"
+          }
+        ]
+      },
+      "SecurityAlert": {
+        "type": "object",
+        "required": ["threatLevel", "source"],
+        "properties": {
+          "threatLevel": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "source": {
+            "type": "string"
+          },
+          "attackVector": {
+            "type": "string"
+          },
+          "affectedSystems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PerformanceAlert": {
+        "type": "object",
+        "required": ["metric", "threshold"],
+        "properties": {
+          "metric": {
+            "type": "string"
+          },
+          "threshold": {
+            "type": "number"
+          },
+          "currentValue": {
+            "type": "number"
+          },
+          "duration": {
+            "type": "string"
+          }
+        }
+      },
+      "InfoAlert": {
+        "type": "object",
+        "required": ["category"],
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -7,11 +7,15 @@ func (s {{ $.ReadOnlyReceiver }}) Encode(e *jx.Encoder) {
 	s.encodeFields(e)
 	e.ObjEnd()
 	{{- else }}
-	switch s.Type {
+	if false {
+		// Just a placeholder for first condition
 	{{- range $s := $.SumOf }}
-	case {{ $s.Name }}{{ $.Name }}:
+	} else if s.Is{{ $s.Name }}() {
 		{{- template "json/enc" elem $s (printf "s.%s" $s.Name) -}}
 	{{- end }}
+	} else {
+		// Default case - should not happen with valid data
+		e.Null()
 	}
     {{- end }}
 }
@@ -19,26 +23,34 @@ func (s {{ $.ReadOnlyReceiver }}) Encode(e *jx.Encoder) {
 {{ if or $d.Discriminator $d.Fields -}}
 func (s {{ $.ReadOnlyReceiver }}) encodeFields(e *jx.Encoder) {
 	{{- if $d.Discriminator -}}
-		switch s.Type {
-		{{- range $m := $.SumSpec.Mapping }}
-		case {{ $m.Type.Name }}{{ $.Name }}:
-			e.FieldStart({{ quote $.SumSpec.Discriminator }})
-			e.Str({{ quote $m.Key }})
-			{{- $j := $m.Type.JSON.Except $.SumSpec.Discriminator }}
+		// Use the actual discriminator value from s.Type
+		e.FieldStart({{ quote $.SumSpec.Discriminator }})
+		e.Str(string(s.Type))
+
+		// Then encode the appropriate fields based on which type it is
+		if false {
+			// Just a placeholder for first condition
+		{{- range $s := $.SumOf }}
+		} else if s.Is{{ $s.Name }}() {
+			{{- $j := $s.JSON.Except $.SumSpec.Discriminator }}
 			{{- if $j.AnyFields }}
 			{
-				s := s.{{ $m.Type.Name }}
+				s := s.{{ $s.Name }}
 				{{- template "json/encode_struct_fields" $j }}
 			}
 			{{- end }}
 		{{- end }}
 		}
 	{{- else if $d.Fields }}
-		switch s.Type {
+		if false {
+			// Just a placeholder for first condition
 		{{- range $s := $.SumOf }}
-		case {{ $s.Name }}{{ $.Name }}:
-			s.{{ $s.Name }}.encodeFields(e)
+		} else if s.Is{{ $s.Name }}() {
+			{{- template "json/enc" elem $s (printf "s.%s" $s.Name) -}}
 		{{- end }}
+		} else {
+			// Default case - should not happen with valid data
+			e.Null()
 		}
 	{{- else }}
 		{{ errorf "unexpected sum type %s" $d }}
@@ -150,11 +162,26 @@ func (s *{{ $.Name }}) Decode(d *jx.Decoder) error {
 				if err != nil {
 					return err
 				}
-				switch typ {
-				{{- range $m:= $.SumSpec.Mapping }}
-				case {{ quote $m.Key }}:
-					s.Type = {{ $m.Type.Name }}{{ $.Name }}
-					found = true
+
+				// Create a mapping from discriminator value to type
+				found = true
+				// Set type directly from string value
+				s.Type = {{ $.Name }}Type(typ)
+
+				// Initialize the appropriate struct based on the type
+				switch s.Type {
+				{{- range $s := $.SumOf }}
+				{{- $values := $.SumSpec.GetAllDiscriminatorValues $s }}
+				{{- if gt (len $values) 0 }}
+				{{- range $key := $values }}
+				{{- $mapValue := $.SumSpec.GetMapValue $s $key }}
+				case {{ $.Name }}{{ $mapValue.FormattedName }}:
+					s.{{ $s.Name }} = {{ $s.Go }}{}
+				{{- end }}
+				{{- else }}
+				case {{ $s.Name }}{{ $.Name }}:
+					s.{{ $s.Name }} = {{ $s.Go }}{}
+				{{- end }}
 				{{- end }}
 				default:
 					return errors.Errorf("unknown type %s", typ)
@@ -182,17 +209,29 @@ func (s *{{ $.Name }}) Decode(d *jx.Decoder) error {
 	}
 	if !found {
 		{{- if $.SumSpec.DefaultMapping }}
-		s.Type = {{ $.SumSpec.DefaultMapping }}{{ $.Name }}
+		{{- range $s := $.SumOf }}
+		{{- if eq $s.Name $.SumSpec.DefaultMapping }}
+		{{- $values := $.SumSpec.GetAllDiscriminatorValues $s }}
+		{{- if gt (len $values) 0 }}
+		{{- $mapValue := $.SumSpec.GetMapValue $s (index $values 0) }}
+		s.Type = {{ $.Name }}{{ $mapValue.FormattedName }}
+		{{- else }}
+		s.Type = {{ $s.Name }}{{ $.Name }}
+		{{- end }}
+		{{- end }}
+		{{- end }}
 		{{- else }}
 		return errors.New("unable to detect sum type variant")
 		{{- end }}
 	}
-	switch s.Type {
+
+	if false {
+		// Just a placeholder for first condition
 	{{- range $s := $.SumOf }}
-	case {{ $s.Name }}{{ $.Name }}:
+	} else if s.Is{{ $s.Name }}() {
 		{{- template "json/dec" elem $s (printf "s.%s" $s.Name) }}
 	{{- end }}
-	default:
+	} else {
 		return errors.Errorf("inferred invalid type: %s", s.Type)
 	}
 	{{- end }}

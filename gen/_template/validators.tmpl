@@ -210,11 +210,24 @@ func (s {{ $t.ReadOnlyReceiver }}) Validate() error {
 func (s {{ $t.ReadOnlyReceiver }}) Validate() error {
 	switch s.Type {
 	{{- range $s := $t.SumOf }}
+		{{- $values := $t.SumSpec.GetAllDiscriminatorValues $s }}
+		{{- if gt (len $values) 0 }}
+		{{- range $key := $values }}
+		{{- $mapValue := $t.SumSpec.GetMapValue $s $key }}
+		case {{ $t.Name }}{{ $mapValue.FormattedName }}:
+		{{- if $s.NeedValidation }}
+		{{- template "validate" elem $s (printf "s.%s" $s.Name) -}}
+		{{- else }}
+		return nil // no validation needed
+		{{- end }}
+		{{- end }}
+		{{- else }}
 		case {{ $s.Name }}{{ $t.Name }}:
 		{{- if $s.NeedValidation }}
 		{{- template "validate" elem $s (printf "s.%s" $s.Name) -}}
 		{{- else }}
 		return nil // no validation needed
+		{{- end }}
 		{{- end }}
 	{{- end }}
 	default:
