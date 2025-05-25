@@ -29,6 +29,12 @@ const (
 type SumSpecMap struct {
 	Key  string
 	Type *Type
+	Name string // Go variable name for Key
+}
+
+// ValueGo returns the Go string representation of the discriminator key.
+func (m SumSpecMap) ValueGo() string {
+	return PrintGoValue(m.Key)
 }
 
 // SumSpec for KindSum.
@@ -48,18 +54,90 @@ type SumSpec struct {
 	TypeDiscriminator bool
 }
 
+type mappingEntry struct {
+	isSingleEntry bool
+	typ           *Type
+	sumOf         *Type
+	sumSpec       *SumSpec
+	sumSpecMap    *SumSpecMap
+}
+
+type mappingEntryConst struct {
+	Name string
+	Key  string
+}
+
+func (e *mappingEntry) Const() *mappingEntryConst {
+	var name []string
+	var value string
+	if e.sumSpecMap == nil || e.sumSpecMap.Key == e.sumOf.Go() {
+		name = []string{e.sumOf.Name, e.typ.Name}
+		value = e.sumOf.Go()
+	} else if e.isSingleEntry {
+		name = []string{e.sumOf.Name, e.typ.Name}
+		value = e.sumSpecMap.Key
+	} else {
+		name = []string{e.sumSpecMap.Name, e.typ.Name}
+		value = e.sumSpecMap.Key
+	}
+	return &mappingEntryConst{
+		Name: strings.Join(name, ""),
+		Key:  value,
+	}
+}
+
+type mappingEntries []*mappingEntry
+
+func (e mappingEntries) JoinConstNames() string {
+	names := make([]string, len(e))
+	for i, entry := range e {
+		names[i] = entry.Const().Name
+	}
+	return strings.Join(names, ", ")
+}
+
+func (e mappingEntries) JoinQuotedConstKeys() string {
+	keys := make([]string, len(e))
+	for i, entry := range e {
+		keys[i] = fmt.Sprintf("%q", entry.Const().Key)
+	}
+	return strings.Join(keys, ", ")
+}
+
 // PickMappingEntryFor returns mapping entry for given type if exists.
-func (s SumSpec) PickMappingEntryFor(t *Type) *SumSpecMap {
+func (s SumSpec) PickMappingEntriesFor(t *Type, sumOf *Type) mappingEntries {
+	defaultEntries := []*mappingEntry{{
+		isSingleEntry: true,
+		typ:           t,
+		sumOf:         sumOf,
+		sumSpec:       &s,
+		sumSpecMap:    nil,
+	}}
 	if s.Discriminator == "" {
-		return nil
+		return defaultEntries
 	}
 
+	var entries []*mappingEntry
 	for _, m := range s.Mapping {
-		if m.Type == t {
-			return &m
+		if m.Type == sumOf {
+			entries = append(entries, &mappingEntry{
+				typ:        t,
+				sumOf:      sumOf,
+				sumSpec:    &s,
+				sumSpecMap: &m,
+			})
 		}
 	}
-	return nil
+
+	switch len(entries) {
+	case 0:
+		return defaultEntries
+	case 1:
+		entries[0].isSingleEntry = true
+		return entries
+	default:
+		return entries
+	}
 }
 
 type Type struct {

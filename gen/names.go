@@ -329,3 +329,28 @@ nextStrategy:
 	}
 	return nil, errors.Errorf("unable to generate variant names for enum %q", enumName)
 }
+
+// discriminatorMappingNameGen creates a name generator for discriminator mapping keys.
+func discriminatorMappingNameGen(sumName string, keys []string) (func(v any, idx int) (string, error), error) {
+	if len(keys) == 0 {
+		return nil, errors.New("empty discriminator keys")
+	}
+
+	// Create sequence that yields the mapping keys
+	seq := func(yield func(any) bool) {
+		for _, key := range keys {
+			// ensure user_id => UserId and not UserID
+			key := strings.ReplaceAll(key, "_", "+")
+			if !yield(key) {
+				return
+			}
+		}
+	}
+
+	nameGen, err := enumVariantNamingStrategy(sumName, seq, len(keys), false)
+	if err != nil {
+		return nil, errors.Wrap(err, "choose naming strategy")
+	}
+
+	return nameGen, nil
+}
