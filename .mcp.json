@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "go-language-server": {
+      "command": "mcp-language-server",
+      "args": ["--workspace", ".", "--lsp", "gopls"]
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
+}

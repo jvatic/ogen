@@ -6,3 +6,5 @@ _bin/*
 
 *.out
 *.dump
+
+*.local*
